@@ -1,0 +1,54 @@
+Group					Heating																								(Home)
+Group:Number			Heating_Mode																						(Heating,RestoreOnStartup)																			
+Group:Switch:OR(ON,OFF)			Heating_BoilerValves																		(Heating,RestoreOnStartup, BoilerRoom, Influxdb)															
+Group:Number			Heating_Setpoint_Normal																				(Heating,RestoreOnStartup)																			
+Group:Number			Heating_Setpoint_Eco																				(Heating,RestoreOnStartup)																			
+Group:Number			Heating_Setpoint_Current		                                                                    (Heating,RestoreOnStartup,Influxdb_EU,Rrd4j)																																									
+Group:Number        	Heating_ConstC																						(Heating,RestoreOnStartup,Influxdb_EU,Rrd4j)
+Group:DateTime       	Heating_LastCalc																					(Heating,RestoreOnStartup)											
+Group:Number			Heating_CalcTime																					(Heating,RestoreOnStartup)
+Group:Switch			Heating_Learn																						(Heating,RestoreOnStartup)
+Group:Number            Heating_Power                                                                                       (Heating, RestoreOnStartup,Influxdb_EU,Rrd4j)
+
+
+Group:Number			Bathroom_Heating_Mode				"Badkamer modus [MAP(spiritmode.map):%s]"						(Bathroom)
+Group:Number			Bathroom_Heating_Setpoint_Normal	"Badkamer thermostaat [%.1f °C]"				<myheating>	(Bathroom)	
+Group:Number			Bathroom_Heating_Setpoint_Eco		"Badkamer thermostaat eco [%.1f °C]"			<myheating>	(Bathroom)		
+Switch					Bathroom_Heating_Timer				"Badkamer verwarming 1 uur aan"						<fire>			(Bathroom, RestoreOnStartup)											{ expire="1h, command=OFF"}
+
+Number					Bathroom_Radiator_Mode				"Badkamer radiator modus [MAP(spiritmode.map):%s]"				(Bathroom, Node3, Heating_Mode, Bathroom_Heating_Mode)			{ channel="zwave:device:512:node3:thermostat_mode" }
+Number					Bathroom_Radiator_Setpoint_Normal	"Badkamer radiator thermostaat [%.1f °C]"		<myheating>	(Bathroom, Node3, Heating_Setpoint_Normal, Bathroom_Heating_Setpoint_Normal)	{ channel="zwave:device:512:node3:thermostat_setpoint_heating" }
+Number					Bathroom_Radiator_Setpoint_Eco		"Badkamer radiator thermostaat eco [%.1f °C]"	<myheating>	(Bathroom, Node3, Heating_Setpoint_Eco, Bathroom_Heating_Setpoint_Eco)		{ channel="zwave:device:512:node3:thermostat_setpoint_heating_econ" }
+Number:Dimensionless	Bathroom_Radiator_Valve				"Badkamer radiator klep [JS(topct.js):%s]"						(Bathroom, Node3)							{ channel="zwave:device:512:node3:switch_dimmer" }
+Number					Bathroom_Radiator_SensorReport		"Badkamer externe temperatuur [%.1f °C]"						(Bathroom, Node3)							{ channel="zwave:device:512:node3:sensor_report" }
+Switch					Bathroom_Radiator_BoilerValve		"Badkamer radiator virtuele klep"								(Heating_BoilerValves, BoilerRoom)
+Number					Bathroom_Radiator_Setpoint_Current																	(Heating_Setpoint_Current)
+Number					Bathroom_Radiator_CalcTime			"Badkamer radiator calc [%d]"																(Heating_CalcTime)
+Number					Bathroom_Radiator_ConstC			"Badkamer radiator constante [%.3f]"							(Heating_ConstC)
+DateTime				Bathroom_Radiator_LastCalc																			(Heating_LastCalc)																	
+Switch					Bathroom_Radiator_Learn																				(Heating_Learn)
+Number                  Bathroom_Radiator_Power              "Badkamer radiator power [%.2f]"                                                             (Heating_Power)
+
+Number					Bathroom_Floor_Mode					"Badkamer vloerverwarming modus [MAP(spiritmode.map):%s]"		(Bathroom, Heating_Mode, Bathroom_Heating_Mode)
+Number					Bathroom_Floor_Setpoint_Normal		"Badkamer vloerverwarming thermostaat [%.1f °C]"		<myheating>	(Bathroom, Heating_Setpoint_Normal, Bathroom_Heating_Setpoint_Normal)	
+Number					Bathroom_Floor_Setpoint_Eco			"Badkamer vloerverwarming thermostaat eco [%.1f °C]"	<myheating>	(Bathroom, Heating_Setpoint_Eco, Bathroom_Heating_Setpoint_Eco)		
+Switch					Bathroom_Floor_BoilerValve			"Badkamer vloerverwarmingsklep"									(Heating_BoilerValves, BoilerRoom, Node18)		//	{ channel="zwave:device:512:node18:switch_binary1" }
+Number					Bathroom_Floor_Setpoint_Current																		(Heating_Setpoint_Current)
+Number					Bathroom_Floor_CalcTime				"Badkamer vloer calc [%d]"																(Heating_CalcTime)
+Number					Bathroom_Floor_ConstC				"Badkamer vloerverwarming constante [%.3f]"							(Heating_ConstC)
+DateTime				Bathroom_Floor_LastCalc																				(Heating_LastCalc)																	
+Switch					Bathroom_Floor_Learn																				(Heating_Learn)
+Number                  Bathroom_Floor_Power                "Badkamer vloer power [%.2f]"                                                             (Heating_Power)
+
+Switch					LivingRoom_Heating_BoilerValve																				(Heating_BoilerValves, BoilerRoom)															
+Number					LivingRoom_Heating_Mode				"Woonkamer verwarming modus [MAP(spiritmode.map):%s]"			(LivingRoom, Heating_Mode)															
+Number					LivingRoom_Heating_ConstC																			(Heating_ConstC)												
+DateTime				LivingRoom_Heating_LastCalc																			(Heating_LastCalc)																	
+Number					LivingRoom_Heating_Setpoint_Normal	"Woonkamer thermostaat [%.1f °C]"				<my-heating>	(LivingRoom, Heating_Setpoint_Normal)												
+Number					LivingRoom_Heating_Setpoint_Eco		"Woonkamer thermostaat eco [%.1f °C]"			<my-heating>	(LivingRoom, Heating_Setpoint_Eco)													
+Number					LivingRoom_Heating_Setpoint_Current																    (Heating_Setpoint_Current)
+Number					LivingRoom_Heating_CalcTime																			(Heating_CalcTime)
+Switch					LivingRoom_Heating_Learn																			(Heating_Learn)
+Number                  LivingRoom_Heating_Power                                                                             (Heating_Power)
+
+Switch					BoilerRoom_Boiler_Switch			"CV aan/uit" 									<fire>			(BoilerRoom,Influxdb)									{ channel="zwave:device:512:node18:switch_binary1" }
