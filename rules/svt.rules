@@ -13,7 +13,7 @@ val checkFirstS=[SwitchItem item,OnOffType command,int minutes|
 	]
 
 
-rule "Smart heating v0.2.6"
+rule "Smart heating v0.2.7"
 /* version 0.2.2:	bugfixes
 					infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
 	version 0.2.3:	Calculation of ConstC not correct, catch of negative numbers and when there is no heating -> no learning next time
@@ -25,6 +25,7 @@ rule "Smart heating v0.2.6"
 					add extra comments
 	version 0.2.5.1: small bugfix with ConstC (ConstC was 0 instead of average ConstC if learning=OFF)
 	version 0.2.6:	Allow longer heating than calculation (eq power > 100)
+	version 0.2.7:	bugfix -> at system started, sendcommand state as number
 */			
 
 when
@@ -56,8 +57,8 @@ then
 			createTimer(now.plusSeconds(10),[|	//let OH give a chance to update NULLs
 				logInfo("svt2","retrigger")
 				Heating_Mode.allMembers.forEach[i|
-					i.sendCommand(i.state)
-					logInfo("svt2","retrigger {}",i.name)
+					logInfo("svt2","retrigger {} with {}",i.name,i.state)
+					i.sendCommand(i.state as Number)
 					] 
 			])
 			return;
@@ -151,7 +152,7 @@ then
 			val valveItem = Heating_BoilerValves.allMembers.findFirst[name.contains(roomDevice)]
 			logInfo("svt2","Heatduration is {} minutes for {}",heatduration.toString,roomDevice)
 			val roomEndHeatTimer = heatingTimers.get(roomDevice+"_EndHeat")
-			logInfo("svt2","endHeatTimer for {} is {}",roomDevice,roomNextCalcTimer?.toString)
+			logInfo("svt2","endHeatTimer for {} is {}",roomDevice,roomEndHeatTimer?.toString)
 			if (power==0){
 				logInfo("svt2","No heat request")
 				roomLearnItem.postUpdate(OFF) // no power, no calculation of ConstC next time
@@ -195,6 +196,8 @@ end
 rule "Boiler on/off"
 when
 	Member of Heating_BoilerValves changed
+	or
+	Time cron "0 0 0/4 ? * * *"
 then
 	checkFirstS.apply(BoilerRoom_Boiler_Switch,Heating_BoilerValves.state,10)
 	//logInfo("Boiler","CV {}",Heating_BoilerValves.state.toString)
