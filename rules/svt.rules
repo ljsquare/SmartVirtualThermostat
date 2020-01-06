@@ -110,7 +110,7 @@ then
 			if (lastSetpointState !== null){
 				lastSetpoint = (lastSetpointState as Number).doubleValue
 			}
-			val lastPower = (powerItem.historicState(new DateTime(lastCalcItem.state.toString),DATABASE)?.state as Number)
+			var lastPower = (powerItem.historicState(new DateTime(lastCalcItem.state.toString),DATABASE)?.state as Number)
    			if (lastPower === null){
 				lastPower=0  // no history known, assume 0
 			}
