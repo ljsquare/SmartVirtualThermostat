@@ -13,7 +13,7 @@ val checkFirstS=[SwitchItem item,OnOffType command,int minutes|
 	]
 
 
-rule "Smart heating v0.2.7"
+rule "Smart heating v0.2.9"
 /* version 0.2.2:	bugfixes
 					infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
 	version 0.2.3:	Calculation of ConstC not correct, catch of negative numbers and when there is no heating -> no learning next time
@@ -26,6 +26,8 @@ rule "Smart heating v0.2.7"
 	version 0.2.5.1: small bugfix with ConstC (ConstC was 0 instead of average ConstC if learning=OFF)
 	version 0.2.6:	Allow longer heating than calculation (eq power > 100)
 	version 0.2.7:	bugfix -> at system started, sendcommand state as number
+	version 0.2.8:	When calling global procedure checkFirstS, specify type (as SwitchItem)
+    version 0.2.9:  Bugfix if there is no power history
 */			
 
 when
@@ -73,7 +75,7 @@ then
 		heatingTimers.put(roomDevice+"_NextCalc", null)
 		heatingTimers.get(roomDevice+"_EndHeat")?.cancel
 		heatingTimers.put(roomDevice+"_EndHeat", null)
-		checkFirstS.apply(Heating_BoilerValves.allMembers.findFirst[name.contains(roomDevice)],OFF,1)
+		checkFirstS.apply(Heating_BoilerValves.allMembers.findFirst[name.contains(roomDevice)] as SwitchItem,OFF,1)
 		return;
 	}
 	val roomNextCalcTimer = heatingTimers.get(roomDevice+"_NextCalc")  //Every x minutes there will be a calculation
@@ -84,7 +86,7 @@ then
 		logInfo("svt2","start new calc for {} in {} minutes",roomDevice,calc_time)
 		heatingTimers.put(roomDevice+"_NextCalc", createTimer(now, [|  //start now instead of calc_time
 			val roomTemp = Temperatures.allMembers.filter[name.contains(room)].map[(state as Number).doubleValue].reduce[s, v |s+v]/Temperatures.allMembers.filter[name.contains(room)].size
-			val roomMode = Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString
+            val roomMode = Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString
 			val lastCalcItem = Heating_LastCalc.allMembers.findFirst[name.contains(roomDevice)]
 			val roomSetpoint =  //get setpoint based on mode (normal, eco or forced)
 				switch roomMode {
@@ -108,7 +110,11 @@ then
 			if (lastSetpointState !== null){
 				lastSetpoint = (lastSetpointState as Number).doubleValue
 			}
-			val lastPower = (powerItem.historicState(new DateTime(lastCalcItem.state.toString),DATABASE).state as Number)
+			val lastPower = (powerItem.historicState(new DateTime(lastCalcItem.state.toString),DATABASE)?.state as Number)
+   			if (lastPower === null){
+				lastPower=0  // no history known, assume 0
+			}
+
 			if ((lastPower == 100 && roomTemp < lastSetpoint) || lastPower == 0){  //last time power = 100 and setpoint not reached -> no learning.
 				roomLearn = OFF
 			}
@@ -117,7 +123,7 @@ then
 				if (roomTemp <= (roomSetpoint+DELTA)){
 					val constCItem = Heating_ConstC.allMembers.findFirst[name.contains(roomDevice)]
 					var cc = (constCItem.averageSince(now.minusDays(7),DATABASE) as Number).doubleValue
-					if (cc<0 || cc>100) cc=60  //due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize de history
+					if (cc<0 || cc>100) cc=60  //due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize the history
 					val constC =
 						if (roomLearn == ON){
 							val lastTemp = Temperatures.allMembers.filter[name.contains(room)].map[(historicState(new DateTime(lastCalcItem.state.toString),DATABASE).state as Number).doubleValue].reduce[s, v |s+v]/Temperatures.allMembers.filter[name.contains(room)].size  //get average of room temperatures (group) at the last calc time
@@ -156,18 +162,18 @@ then
 			if (power==0){
 				logInfo("svt2","No heat request")
 				roomLearnItem.postUpdate(OFF) // no power, no calculation of ConstC next time
-				checkFirstS.apply(valveItem,OFF,1)
+				checkFirstS.apply(valveItem as SwitchItem,OFF,1)
 				//roomEndHeatTimer?.cancel
 				//heatingTimers.put(roomDevice+"_EndHeat",null)
 				roomEndHeatTimer.reschedule(now)   // start running heat timer to stop heat (close valve)
 			}else{
-				checkFirstS.apply(valveItem,ON,1)
+				checkFirstS.apply(valveItem as SwitchItem,ON,1)
 				logInfo("svt2","Valve ON")
 				Heating_Setpoint_Current.allMembers.findFirst[name.contains(roomDevice)].postUpdate(roomSetpoint)
 				if (roomEndHeatTimer === null || roomEndHeatTimer.hasTerminated){
 					heatingTimers.put(roomDevice+"_EndHeat", createTimer(now.plusMinutes(heatduration),[|
 						logInfo("svt2","End heat")
-						checkFirstS.apply(valveItem,OFF,1)
+						checkFirstS.apply(valveItem as SwitchItem,OFF,1)
 						logInfo("svt2","Valve OFF {}",roomDevice)
 					]))
 				}else{
