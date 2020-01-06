@@ -13,7 +13,7 @@ val checkFirstS=[SwitchItem item,OnOffType command,int minutes|
 	]
 
 
-rule "Smart heating v0.2.9"
+rule "Smart heating v0.2.10"
 /* version 0.2.2:	bugfixes
 					infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
 	version 0.2.3:	Calculation of ConstC not correct, catch of negative numbers and when there is no heating -> no learning next time
@@ -28,6 +28,7 @@ rule "Smart heating v0.2.9"
 	version 0.2.7:	bugfix -> at system started, sendcommand state as number
 	version 0.2.8:	When calling global procedure checkFirstS, specify type (as SwitchItem)
     version 0.2.9:  Bugfix if there is no power history
+    version 0.2.10: Bugfix if endheattimer is null
 */			
 
 when
@@ -81,7 +82,6 @@ then
 	val roomNextCalcTimer = heatingTimers.get(roomDevice+"_NextCalc")  //Every x minutes there will be a calculation
 	logInfo("svt2","nextCalcTimer for {} is {}",roomDevice,roomNextCalcTimer?.toString)
 	val calc_time=(Heating_CalcTime.allMembers.findFirst[name.contains(roomDevice)].state as Number).intValue
-	//val calc_time=1 //debug
 	if (roomNextCalcTimer === null || roomNextCalcTimer.hasTerminated){ //calculation ended or never started, so create it and run it now
 		logInfo("svt2","start new calc for {} in {} minutes",roomDevice,calc_time)
 		heatingTimers.put(roomDevice+"_NextCalc", createTimer(now, [|  //start now instead of calc_time
@@ -165,7 +165,7 @@ then
 				checkFirstS.apply(valveItem as SwitchItem,OFF,1)
 				//roomEndHeatTimer?.cancel
 				//heatingTimers.put(roomDevice+"_EndHeat",null)
-				roomEndHeatTimer.reschedule(now)   // start running heat timer to stop heat (close valve)
+				roomEndHeatTimer?.reschedule(now)   // start running heat timer to stop heat (close valve)
 			}else{
 				checkFirstS.apply(valveItem as SwitchItem,ON,1)
 				logInfo("svt2","Valve ON")
