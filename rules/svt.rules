@@ -13,7 +13,7 @@ val checkFirstS=[SwitchItem item,OnOffType command,int minutes|
 	]
 
 
-rule "Smart heating v0.2.10"
+rule "Smart heating v0.2.11"
 /* version 0.2.2:	bugfixes
 					infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
 	version 0.2.3:	Calculation of ConstC not correct, catch of negative numbers and when there is no heating -> no learning next time
@@ -29,6 +29,8 @@ rule "Smart heating v0.2.10"
 	version 0.2.8:	When calling global procedure checkFirstS, specify type (as SwitchItem)
     version 0.2.9:  Bugfix if there is no power history
     version 0.2.10: Bugfix if endheattimer is null
+	version 0.2.11: somehow the changes with version 0.2.6 aren't applied
+                    Bugfix with null value. lastTemperature can cause a null (if wasn't check). Now if it is null it will be 0
 */			
 
 when
@@ -126,7 +128,7 @@ then
 					if (cc<0 || cc>100) cc=60  //due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize the history
 					val constC =
 						if (roomLearn == ON){
-							val lastTemp = Temperatures.allMembers.filter[name.contains(room)].map[(historicState(new DateTime(lastCalcItem.state.toString),DATABASE).state as Number).doubleValue].reduce[s, v |s+v]/Temperatures.allMembers.filter[name.contains(room)].size  //get average of room temperatures (group) at the last calc time
+							val lastTemp = Temperatures.allMembers.filter[name.contains(room)].map[(historicState(new DateTime(lastCalcItem.state.toString),DATABASE)?.state as Number).doubleValue].reduce[s, v |s+v]/Temperatures.allMembers.filter[name.contains(room)].size  //get average of room temperatures (group) at the last calc time
 							val deltaSeconds = ((now.millis-(new DateTime(lastCalcItem.state.toString)).millis)/1000).doubleValue
 							logInfo("svt2","Last temperature {}, Last setpoint {}, delta {}, room temp {}, calc time {}, ConstCAvg {}",lastTemp.toString,lastSetpoint.toString,deltaSeconds,roomTemp,calc_time,(constCItem.averageSince(now.minusDays(7),DATABASE) as Number))
 							val ccCalc = 
@@ -142,7 +144,7 @@ then
 					constCItem.postUpdate(constC)
 					logInfo("svt2","ConstC is {}",constC)
 					var pw = (roomSetpoint-roomTemp)*constC
-					if (pw>100) pw=100 //max
+					if (pw>200) pw=200 //max
 					if (pw<0) pw=0 //min
 					pw
 				}else{
@@ -162,7 +164,7 @@ then
 			if (power==0){
 				logInfo("svt2","No heat request")
 				roomLearnItem.postUpdate(OFF) // no power, no calculation of ConstC next time
-				checkFirstS.apply(valveItem as SwitchItem,OFF,1)
+				//checkFirstS.apply(valveItem as SwitchItem,OFF,1)
 				//roomEndHeatTimer?.cancel
 				//heatingTimers.put(roomDevice+"_EndHeat",null)
 				roomEndHeatTimer?.reschedule(now)   // start running heat timer to stop heat (close valve)
