@@ -1,27 +1,28 @@
-val String filename = "Thermostat.rules"
+val String filename = "svt"
 
 val heatingTimers = <String, Timer>newHashMap
 val String DATABASE = "mysql"
 
-val checkFirstS = [SwitchItem item, OnOffType command, int minutes |
-		if (now.minusMinutes(minutes).isAfter(new DateTime(item.previousState(false, DATABASE).timestamp.time))) {  //changed since to avoid flapping in minutes amount of time	
-			if (item.state != command) item.sendCommand(command)
+val checkFirstS = [SwitchItem itemState, OnOffType itemCommand, int minutes |
+		if(now.minusMinutes(minutes).isAfter(new DateTime(itemCommand.previousState(false, DATABASE).timestamp.time))) {  //changed since to avoid flapping in minutes amount of time	
+			if(itemState.state != itemCommand) itemState.sendCommand(itemCommand)
 		}
         else {
-			val timeritem = item
-			val timercommand = command
+			val timerItem = itemState
+			val timerCommand = itemCommand
 			createTimer(now.plusMinutes(minutes), [|
-				if (timeritem.state != command) timeritem.sendCommand(timercommand)
+				if (timerItem.state != itemCommand) timerItem.sendCommand(timerCommand)
 			])
 		}
 	]
 
 rule "Smart heating v0.2.11"
+
 /*  version 0.2.2:	bugfixes
 					infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
 	version 0.2.3:	Calculation of ConstC not correct, catch of negative numbers and when there is no heating -> no learning next time
 					Solution inifity calculation won't work, previousState(true) can give a wrong measurement -> changed to historicState(last calculation)
-	version 0.2.4:	ConstC gives high values, original pytoh script won't calculate if power=0 or 100 -> implemented				
+	version 0.2.4:	ConstC gives high values, original python script won't calculate if power=0 or 100 -> implemented				
 					Missing update Setpoint_Current (needed for persistence)
 	version 0.2.5:  bugfixes
 					Prevent that ConstC will be negative
@@ -34,7 +35,7 @@ rule "Smart heating v0.2.11"
     version 0.2.10: Bugfix if endheattimer is null
     version 0.2.11: somehow the changes with version 0.2.6 aren't applied
                     Bugfix with null value. lastTemperature can cause a null (if wasn't check). Now if it is null it will be 0
-  
+    version 0.2.12: Cosmetic fixes
 */
 when
 	Member of Heating_Setpoint_Normal received update
@@ -44,58 +45,58 @@ when
 	Member of Heating_Mode received update
 	or
 	Member of Heating_CalcTime received update
-	//or
-	//System started
+	or
+	System started
 
 then
 	val double DELTA = 0.2
-	val String room =                               //which room requires heating. If no item triggered  the rule (system started), check for nulls
-		if (triggeringItem === null) {              //system started trigger
+	val String room =                                                                               // Which room requires heating. If no item triggered  the rule (system started), check for nulls
+		if (triggeringItem === null) {                                                              // System started trigger
 			logInfo(filename, "System started, resetting timers and checking for NULL")
-			Heating_BoilerValves.allMembers.forEach[if (state == NULL) postUpdate(OFF)]
-			Heating_CalcTime.allMembers.forEach[if (state == NULL) postUpdate(30)]
-			Heating_ConstC.allMembers.forEach[if (state == NULL) postUpdate(60)]
-			Heating_LastCalc.allMembers.forEach[if (state == NULL) postUpdate(new DateTimeType(now.toString))]
-			Heating_Learn.allMembers.forEach[if (state == NULL) postUpdate(ON)]
-			Heating_Mode.allMembers.forEach[if (state == NULL) postUpdate(0)]
-			Heating_Setpoint_Current.allMembers.forEach[if (state == NULL) postUpdate(20)]
-			Heating_Setpoint_Eco.allMembers.forEach[if (state == NULL) postUpdate(17)]
-			Heating_Setpoint_Normal.allMembers.forEach[if (state == NULL) postUpdate(20)]
+			Heating_BoilerValves.allMembers.forEach[if(state == NULL) postUpdate(OFF)]
+			Heating_CalcTime.allMembers.forEach[if(state == NULL) postUpdate(30)]
+			Heating_ConstC.allMembers.forEach[if(state == NULL) postUpdate(60)]
+			Heating_LastCalc.allMembers.forEach[if(state == NULL) postUpdate(new DateTimeType(now.toString))]
+			Heating_Learn.allMembers.forEach[if(state == NULL) postUpdate(ON)]
+			Heating_Mode.allMembers.forEach[if(state == NULL) postUpdate(0)]
+			Heating_Setpoint_Current.allMembers.forEach[if(state == NULL) postUpdate(20)]
+			Heating_Setpoint_Eco.allMembers.forEach[if(state == NULL) postUpdate(17)]
+			Heating_Setpoint_Normal.allMembers.forEach[if(state == NULL) postUpdate(20)]
 			
-            createTimer(now.plusSeconds(10), [|	//let OH give a chance to update NULLs
+            createTimer(now.plusSeconds(10), [|	                                                    // let OH give a chance to update NULLs
 				logInfo(filename,"retrigger")
 				Heating_Mode.allMembers.forEach[ i |
-					    logInfo(filename, "retrigger {} with {}", i.name, i.state)
-					    i.sendCommand(i.state as Number)
-					]
+                    logInfo(filename, "retrigger {} with {}", i.name, i.state)
+                    i.sendCommand(i.state as Number)
+                ]
 			])
-			return;
+			return
 		}
         else {
 			triggeringItem.name.split("_").get(0)
 		}
-	val String roomDevice = room + "_" + triggeringItem.name.split("_").get(1)                       // sub device in room (if multiple heating devices are used)
+	val String roomDevice = room + "_" + triggeringItem.name.split("_").get(1)                      // sub device in room (if multiple heating devices are used)
 	logInfo(filename, "Room {}, RoomDevice {}", room, roomDevice)
-	if(Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString == "0") {        // if heating mode =0 (off) cancel everything, stop heating and return
+	if(Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString == "0") {        // if heating mode = 0 (off) cancel everything, stop heating and return
 		logInfo(filename, "Heating mode for {} is off", roomDevice)
 		heatingTimers.get(roomDevice + "_NextCalc")?.cancel
 		heatingTimers.put(roomDevice + "_NextCalc", null)
 		heatingTimers.get(roomDevice + "_EndHeat")?.cancel
 		heatingTimers.put(roomDevice + "_EndHeat", null)
 		checkFirstS.apply(Heating_BoilerValves.allMembers.findFirst[name.contains(roomDevice)] as SwitchItem, OFF, 1)
-		return;
+		return
 	}
-	val roomNextCalcTimer = heatingTimers.get(roomDevice + "_NextCalc")  //Every x minutes there will be a calculation
+	val roomNextCalcTimer = heatingTimers.get(roomDevice + "_NextCalc")                             // Every x minutes there will be a calculation
 	logInfo(filename, "nextCalcTimer for {} is {}", roomDevice, roomNextCalcTimer?.toString)
-	val int calc_time=(Heating_CalcTime.allMembers.findFirst[name.contains(roomDevice)].state as Number).intValue
+	val int calcTime=(Heating_CalcTime.allMembers.findFirst[name.contains(roomDevice)].state as Number).intValue
 	
-    if(roomNextCalcTimer === null || roomNextCalcTimer.hasTerminated) { //calculation ended or never started, so create it and run it now
-		logInfo(filename, "start new calc for {} in {} minutes", roomDevice, calc_time)
-		heatingTimers.put(roomDevice + "_NextCalc", createTimer(now, [|  //start now instead of calc_time
+    if(roomNextCalcTimer === null || roomNextCalcTimer.hasTerminated) {                             // calculation ended or never started, so create it and run it now
+		logInfo(filename, "start new calc for {} in {} minutes", roomDevice, calcTime)
+		heatingTimers.put(roomDevice + "_NextCalc", createTimer(now, [|                             // start now instead of calcTime
 			val double roomTemp = Temperatures.allMembers.filter[name.contains(room)].map[(state as Number).doubleValue].reduce[s, v | s + v ] / Temperatures.allMembers.filter[name.contains(room)].size
             val String roomMode = Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString
 			val lastCalcItem = Heating_LastCalc.allMembers.findFirst[name.contains(roomDevice)]
-			val double roomSetpoint =  //get setpoint based on mode (normal, eco or forced)
+			val double roomSetPoint =                                                               // get setpoint based on mode (normal, eco or forced)
 				switch roomMode {
 					case "1": {
 						(Heating_Setpoint_Normal.allMembers.findFirst[name.contains(roomDevice)].state as Number).doubleValue
@@ -104,43 +105,43 @@ then
 						(Heating_Setpoint_Eco.allMembers.findFirst[name.contains(roomDevice)].state as Number).doubleValue
 					}
 					case "15": {
-						0  //force mode, but this won't recalculate the ConstC
+						0                                                                           // force mode, but this won't recalculate the ConstC
 					}
 				}
 			val roomLearnItem = Heating_Learn.allMembers.findFirst[name.contains(roomDevice)]
 			var roomLearn = roomLearnItem.state
-			logInfo(filename, "Roomdevice {}, Setpoint {}, Temp {}, Mode {}, Learning {}", roomDevice, roomSetpoint, roomTemp, roomMode, roomLearn.toString())
-			val setpointItem = Heating_Setpoint_Current.allMembers.findFirst[name.contains(roomDevice)]
+			logInfo(filename, "Roomdevice {}, Setpoint {}, Temp {}, Mode {}, Learning {}", roomDevice, roomSetPoint, roomTemp, roomMode, roomLearn.toString())
+			val setPointItem = Heating_Setpoint_Current.allMembers.findFirst[name.contains(roomDevice)]
 			val powerItem = Heating_Power.allMembers.findFirst[name.contains(roomDevice)]
-			var lastSetpoint = roomSetpoint // set lastsetpoint to roomsetpoint, just to besure if lastsetpoint===null
-			val lastSetpointState = setpointItem.historicState(new DateTime(lastCalcItem.state.toString), DATABASE)?.state
-			if(lastSetpointState !== null) {
-				lastSetpoint = (lastSetpointState as Number).doubleValue
+			var lastSetPoint = roomSetPoint                                                         // set lastsetpoint to roomsetpoint, just to besure if lastsetpoint===null
+			val lastSetPointState = setPointItem.historicState(new DateTime(lastCalcItem.state.toString), DATABASE)?.state
+			if(lastSetPointState !== null) {
+				lastSetPoint = (lastSetPointState as Number).doubleValue
 			}
 
 			var lastPower = (powerItem.historicState(new DateTime(lastCalcItem.state.toString), DATABASE)?.state as Number)
    			if(lastPower === null) {
-				lastPower = 0  // no history known, assume 0
+				lastPower = 0                                                                       // no history known, assume 0
 			}
 
-			if ((lastPower == 100 && roomTemp < lastSetpoint) || lastPower == 0) {  //last time power = 100 and setpoint not reached -> no learning.
+			if((lastPower == 100 && roomTemp < lastSetPoint) || lastPower == 0) {                  // last time power = 100 and setpoint not reached -> no learning.
 				roomLearn = OFF
 			}
 
-			logInfo(filename, "Roomdevice {}, roomtemp {}, roomsetpoint {}, lastpower {}, lastsetpoint {}, roomlearn {}", roomDevice, roomTemp, roomSetpoint, lastPower, lastSetpoint, roomLearn)
-			val power = //determine if heating is necessary and for how long (will be used later for time calculation)
-				if (roomTemp <= (roomSetpoint + DELTA)) {
+			logInfo(filename, "Roomdevice {}, roomtemp {}, roomsetpoint {}, lastpower {}, lastsetpoint {}, roomlearn {}", roomDevice, roomTemp, roomSetPoint, lastPower, lastSetPoint, roomLearn)
+			val power =                                                                             // determine if heating is necessary and for how long (will be used later for time calculation)
+				if(roomTemp <= (roomSetPoint + DELTA)) {
 					val constCItem = Heating_ConstC.allMembers.findFirst[name.contains(roomDevice)]
 					var double cc = (constCItem.averageSince(now.minusDays(7),DATABASE) as Number).doubleValue
-					if (cc < 0 || cc > 100) cc = 60   // due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize the history
+					if (cc < 0 || cc > 100) cc = 60                                                 // due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize the history
 					val constC =
-						if (roomLearn == ON){
+						if(roomLearn == ON){
 							val lastTemp = Temperatures.allMembers.filter[name.contains(room)].map[(historicState(new DateTime(lastCalcItem.state.toString),DATABASE)?.state as Number).doubleValue].reduce[s, v | s + v ] / Temperatures.allMembers.filter[name.contains(room)].size  //get average of room temperatures (group) at the last calc time
 							val deltaSeconds = ((now.millis - (new DateTime(lastCalcItem.state.toString)).millis) / 1000).doubleValue
-							logInfo(filename,"Last temperature {}, Last setpoint {}, delta {}, room temp {}, calc time {}, ConstCAvg {}", lastTemp.toString, lastSetpoint.toString, deltaSeconds, roomTemp, calc_time, (constCItem.averageSince(now.minusDays(7), DATABASE) as Number))
+							logInfo(filename, "Last temperature {}, Last setpoint {}, delta {}, room temp {}, calc time {}, ConstCAvg {}", lastTemp.toString, lastSetPoint.toString, deltaSeconds, roomTemp, calcTime, (constCItem.averageSince(now.minusDays(7), DATABASE) as Number))
 							val ccCalc = 
-								if (roomTemp > lastTemp && lastSetpoint > lastTemp) {  //prevent that ConstC will be negative
-									(lastSetpoint - lastTemp) / (roomTemp - lastTemp) * deltaSeconds / (calc_time * 60)
+								if(roomTemp > lastTemp && lastSetPoint > lastTemp) {                // prevent that ConstC will be negative
+									(lastSetPoint - lastTemp) / (roomTemp - lastTemp) * deltaSeconds / (calcTime * 60)
 								}
                                 else {
 									1
@@ -153,68 +154,68 @@ then
 					constCItem.postUpdate(constC)
 					logInfo(filename, "ConstC is {}", constC)
 					
-                    var pw = (roomSetpoint - roomTemp) * constC
+                    var pw = (roomSetPoint - roomTemp) * constC
 					if (pw > 200) pw = 200  //max
 					if (pw < 0) pw = 0      //min
 					pw
 				}
                 else {
-					if (roomSetpoint == 0) { //force mode
+					if(roomSetPoint == 0) {                                                         //force mode
 						100
 					}
                     else {
 						0
 					}
 				}
-			roomLearnItem.postUpdate(ON)  // in case turned off by mode/setpoint change or power=0
+			roomLearnItem.postUpdate(ON)                                                            // in case turned off by mode/setpoint change or power=0
 			logInfo(filename, "Power is {}", power)
-			val heatduration=(power * calc_time / 100).intValue
+			val int heatDuration = (power * calcTime / 100).intValue
 			val valveItem = Heating_BoilerValves.allMembers.findFirst[name.contains(roomDevice)]
-			logInfo(filename, "Heatduration is {} minutes for {}", heatduration.toString, roomDevice)
+			logInfo(filename, "Heatduration is {} minutes for {}", heatDuration.toString, roomDevice)
 			val roomEndHeatTimer = heatingTimers.get(roomDevice + "_EndHeat")
 			logInfo(filename, "endHeatTimer for {} is {}", roomDevice, roomEndHeatTimer?.toString)
-			if (power == 0) {
+			if(power == 0) {
 				logInfo(filename, "No heat request")
-				roomLearnItem.postUpdate(OFF)           // no power, no calculation of ConstC next time
+				roomLearnItem.postUpdate(OFF)                                                       // no power, no calculation of ConstC next time
 				//checkFirstS.apply(valveItem as SwitchItem, OFF, 1)
 				//roomEndHeatTimer?.cancel
 				//heatingTimers.put(roomDevice + "_EndHeat", null)
-                roomEndHeatTimer?.reschedule(now)      // start running heat timer to stop heat (close valve)
+                roomEndHeatTimer?.reschedule(now)                                                   // start running heat timer to stop heat (close valve)
 			}
             else {
 				checkFirstS.apply(valveItem as SwitchItem, ON, 1)
 				logInfo(filename, "Valve ON")
-				Heating_Setpoint_Current.allMembers.findFirst[name.contains(roomDevice)].postUpdate(roomSetpoint)
+				Heating_Setpoint_Current.allMembers.findFirst[name.contains(roomDevice)].postUpdate(roomSetPoint)
 				
                 if (roomEndHeatTimer === null || roomEndHeatTimer.hasTerminated) {
-					heatingTimers.put(roomDevice + "_EndHeat", createTimer(now.plusMinutes(heatduration),[|
+					heatingTimers.put(roomDevice + "_EndHeat", createTimer(now.plusMinutes(heatDuration), [|
 						logInfo(filename, "End heat")
 						checkFirstS.apply(valveItem as SwitchItem, OFF, 1)
 						logInfo(filename, "Valve OFF {}", roomDevice)
 					]))
 				}
                 else {
-					logInfo(filename, "Timer end heat active, reschedule for {} minute(s)", heatduration)
-					roomEndHeatTimer.reschedule(now.plusMinutes(heatduration))
+					logInfo(filename, "Timer end heat active, reschedule for {} minute(s)", heatDuration)
+					roomEndHeatTimer.reschedule(now.plusMinutes(heatDuration))
 				}
 			}
             
             lastCalcItem.postUpdate(new DateTimeType(now.toString))
             powerItem.postUpdate(power)
-            setpointItem.postUpdate(roomSetpoint)
-            heatingTimers.get(roomDevice + "_NextCalc").reschedule(now.plusMinutes(calc_time))
-            logInfo(filename,"reschedule nextCalcTimer for {} is {}. Calctime {}. Inside own timer", roomDevice, heatingTimers.get(roomDevice + "_NextCalc")?.toString, calc_time)
+            setPointItem.postUpdate(roomSetPoint)
+            heatingTimers.get(roomDevice + "_NextCalc").reschedule(now.plusMinutes(calcTime))
+            logInfo(filename, "Reschedule nextCalcTimer for {} is {}. Calctime {}. Inside own timer", roomDevice, heatingTimers.get(roomDevice + "_NextCalc")?.toString, calcTime)
 		]))
 	}
     else {
 		if(triggeringItem.name.contains("Setpoint") || triggeringItem.name.contains("Mode")) {
 			Heating_Learn.allMembers.findFirst[name.contains(roomDevice)].sendCommand(OFF)
 			roomNextCalcTimer.reschedule(now)
-			logInfo(filename,"reschedule nextCalcTimer for {} is {}. CalcTime {}. When mode/setpoint changed", roomDevice, roomNextCalcTimer?.toString, calc_time)
+			logInfo(filename,"Reschedule nextCalcTimer for {} is {}. CalcTime {}. When mode/setpoint changed", roomDevice, roomNextCalcTimer?.toString, calcTime)
 		}
         else {
-			roomNextCalcTimer.reschedule(now.plusMinutes(calc_time))
-			logInfo(filename, "reschedule nextCalcTimer for {} is {}. Calctime {}", roomDevice, roomNextCalcTimer?.toString, calc_time)
+			roomNextCalcTimer.reschedule(now.plusMinutes(calcTime))
+			logInfo(filename, "Reschedule nextCalcTimer for {} is {}. Calctime {}", roomDevice, roomNextCalcTimer?.toString, calcTime)
 		}
 	}
 end
@@ -222,8 +223,8 @@ end
 rule "Boiler on/off"
 when
 	Member of Heating_BoilerValves changed
-	//or
-	//Time cron "0 0 0/4 ? * * *"
+	or
+	Time cron "0 0 0/4 ? * * *"
 then
 	checkFirstS.apply(BoilerRoom_Boiler_Switch, Heating_BoilerValves.state, 10)
 	logInfo(filename, "CV {}", Heating_BoilerValves.state.toString)
