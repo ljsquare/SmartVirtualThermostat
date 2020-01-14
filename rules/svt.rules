@@ -49,7 +49,7 @@ when
 	System started
 
 then
-	val double DELTA = 0.2
+	val DELTA = 0.2
 	val String room =                                                                               // Which room requires heating. If no item triggered  the rule (system started), check for nulls
 		if (triggeringItem === null) {                                                              // System started trigger
 			logInfo(filename, "System started, resetting timers and checking for NULL")
@@ -93,10 +93,10 @@ then
     if(roomNextCalcTimer === null || roomNextCalcTimer.hasTerminated) {                             // calculation ended or never started, so create it and run it now
 		logInfo(filename, "start new calc for {} in {} minutes", roomDevice, calcTime)
 		heatingTimers.put(roomDevice + "_NextCalc", createTimer(now, [|                             // start now instead of calcTime
-			val double roomTemp = Temperatures.allMembers.filter[name.contains(room)].map[(state as Number).doubleValue].reduce[s, v | s + v ] / Temperatures.allMembers.filter[name.contains(room)].size
+			val roomTemp = Temperatures.allMembers.filter[name.contains(room)].map[(state as Number).doubleValue].reduce[s, v | s + v ] / Temperatures.allMembers.filter[name.contains(room)].size
             val String roomMode = Heating_Mode.allMembers.findFirst[name.contains(roomDevice)].state.toString
 			val lastCalcItem = Heating_LastCalc.allMembers.findFirst[name.contains(roomDevice)]
-			val double roomSetPoint =                                                               // get setpoint based on mode (normal, eco or forced)
+			val roomSetPoint =                                                               // get setpoint based on mode (normal, eco or forced)
 				switch roomMode {
 					case "1": {
 						(Heating_Setpoint_Normal.allMembers.findFirst[name.contains(roomDevice)].state as Number).doubleValue
@@ -132,7 +132,7 @@ then
 			val power =                                                                             // determine if heating is necessary and for how long (will be used later for time calculation)
 				if(roomTemp <= (roomSetPoint + DELTA)) {
 					val constCItem = Heating_ConstC.allMembers.findFirst[name.contains(roomDevice)]
-					var double cc = (constCItem.averageSince(now.minusDays(7),DATABASE) as Number).doubleValue
+					var cc = (constCItem.averageSince(now.minusDays(7),DATABASE) as Number).doubleValue
 					if (cc < 0 || cc > 100) cc = 60                                                 // due to testing, ConstantC can be very high (above 10000) of negative. Just to normalize the history
 					val constC =
 						if(roomLearn == ON){
