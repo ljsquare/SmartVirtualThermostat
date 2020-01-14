@@ -65,9 +65,9 @@ then
 			
             createTimer(now.plusSeconds(10), [|	                                                    // let OH give a chance to update NULLs
 				logInfo(filename,"retrigger")
-				Heating_Mode.allMembers.forEach[ i |
-                    logInfo(filename, "retrigger {} with {}", i.name, i.state)
-                    i.sendCommand(i.state as Number)
+				Heating_Mode.allMembers.forEach[
+                    logInfo(filename, "retrigger {} with {}", name, state)
+                    sendCommand(state as Number)
                 ]
 			])
 			return
