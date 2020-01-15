@@ -16,7 +16,7 @@ val checkFirstS = [SwitchItem itemState, OnOffType itemCommand, int minutes |
         }
     ]
 
-rule "Smart heating v0.2.11"
+rule "Smart heating v0.2.12"
 
 /*  version 0.2.2:  bugfixes
                     infinity calculation catch -> probaly because last temperature == current temperature, fixed with previousstate(true)
