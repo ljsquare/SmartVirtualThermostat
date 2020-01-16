@@ -11,7 +11,7 @@ val checkFirstS = [SwitchItem itemState, OnOffType itemCommand, int minutes |
             val timerItem = itemState
             val timerCommand = itemCommand
             createTimer(now.plusMinutes(minutes), [|
-                if (timerItem.state != itemCommand) timerItem.sendCommand(timerCommand)
+                if (timerItem.state != timerCommand) timerItem.sendCommand(timerCommand)
             ])
         }
     ]
@@ -37,7 +37,7 @@ rule "Smart heating v0.2.13"
                     Bugfix with null value. lastTemperature can cause a null (if wasn't check). Now if it is null it will be 0
     version 0.2.12: Cosmetic fixes
 	version 0.2.13:	Fixed bug in global lambda
-
+	version 0.2.14:	Another bugfix in global lambda
 */
 when
     Member of Heating_Setpoint_Normal received update
