@@ -52,3 +52,4 @@ Switch                  LivingRoom_Heating_Learn                                
 Number                  LivingRoom_Heating_Power                                                                                        (Heating_Power)                                                                 
 
 Switch                  BoilerRoom_Boiler_Switch            "CV aan/uit"                                                <fire>          (BoilerRoom,Influxdb)                                                           { channel="zwave:device:512:node18:switch_binary1" }
+Switch		        			Heating_Default_Values		{autoupdate="false"
